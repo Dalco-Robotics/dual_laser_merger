@@ -85,7 +85,7 @@ private:
   uint32_t ranges_size;
   double range, angle;
   int index, numNearbyPoints;
-  double allowed_radius_scaled, dist_from_origin;
+  double allowed_radius_scaled, dist_from_origin, scan_period, max_interval_duration;
 
   pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
   std::vector<int> pointIndices;

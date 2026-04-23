@@ -48,6 +48,12 @@ MergerNode::MergerNode(const rclcpp::NodeOptions & options)
       message_filters::sync_policies::ApproximateTime<
       sensor_msgs::msg::LaserScan, sensor_msgs::msg::LaserScan>(input_queue_size_param),
       laser_1_sub, laser_2_sub);
+  message_filter->getPolicy()->setMaxIntervalDuration(
+      rclcpp::Duration::from_seconds(max_interval_duration)); 
+  message_filter->getPolicy()->setInterMessageLowerBound(
+      0, rclcpp::Duration::from_seconds(scan_period));
+  message_filter->getPolicy()->setInterMessageLowerBound(
+      1, rclcpp::Duration::from_seconds(scan_period));
   message_filter->setAgePenalty(tolerance_param);
   message_filter->registerCallback(
     std::bind(&MergerNode::sub_callback, this, std::placeholders::_1, std::placeholders::_2));
@@ -84,6 +90,8 @@ void MergerNode::declare_param()
   allowed_radius_param = this->declare_parameter("allowed_radius", 1.0);
   enable_shadow_filter_param = this->declare_parameter("enable_shadow_filter", false);
   enable_average_filter_param = this->declare_parameter("enable_average_filter", false);
+  scan_period = this->declare_parameter("scan_period", 0.1);
+  max_interval_duration = this->declare_parameter("max_interval_duration", 0.015);
 }
 
 void MergerNode::refresh_param()
@@ -109,6 +117,8 @@ void MergerNode::refresh_param()
   this->get_parameter("allowed_radius", allowed_radius_param);
   this->get_parameter("enable_shadow_filter", enable_shadow_filter_param);
   this->get_parameter("enable_average_filter", enable_average_filter_param);
+  this->get_parameter("scan_period", scan_period);
+  this->get_parameter("max_interval_duration", max_interval_duration);
 }
 
 void MergerNode::sub_callback(
