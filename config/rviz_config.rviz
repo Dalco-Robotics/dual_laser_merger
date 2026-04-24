@@ -146,7 +146,7 @@ Visualization Manager:
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Best Effort
-        Value: /merged
+        Value: /scan
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -161,7 +161,7 @@ Visualization Manager:
           Value: true
         laser_2:
           Value: true
-        lsc_mount:
+        base_link:
           Value: true
       Marker Scale: 1
       Name: TF
@@ -169,7 +169,7 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        lsc_mount:
+        base_link:
           laser_1:
             {}
           laser_2:
@@ -179,7 +179,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: lsc_mount
+    Fixed Frame: base_link
     Frame Rate: 30
   Name: root
   Tools:
