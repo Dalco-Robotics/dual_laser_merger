@@ -31,14 +31,14 @@ MergerNode::MergerNode(const rclcpp::NodeOptions & options)
 
   merged_scan_pub =
     this->create_publisher<sensor_msgs::msg::LaserScan>(this->get_parameter(
-      "merged_scan_topic").as_string(), rclcpp::SensorDataQoS());
+      "merged_scan_topic").as_string(), rclcpp::SensorDataQoS().reliable());
   merged_cloud_pub =
     this->create_publisher<sensor_msgs::msg::PointCloud2>(this->get_parameter(
-      "merged_cloud_topic").as_string(), rclcpp::SensorDataQoS());
+      "merged_cloud_topic").as_string(), rclcpp::SensorDataQoS().reliable());
   laser_1_sub.subscribe(this, this->get_parameter("laser_1_topic").as_string(),
-      rclcpp::SensorDataQoS().get_rmw_qos_profile());
+      rclcpp::SensorDataQoS().reliable().get_rmw_qos_profile());
   laser_2_sub.subscribe(this, this->get_parameter("laser_2_topic").as_string(),
-      rclcpp::SensorDataQoS().get_rmw_qos_profile());
+      rclcpp::SensorDataQoS().reliable().get_rmw_qos_profile());
 
   tf2_buffer = std::make_shared<tf2_ros::Buffer>(this->get_clock());
   tf2_listener = std::make_shared<tf2_ros::TransformListener>(*tf2_buffer, this);
@@ -128,6 +128,15 @@ void MergerNode::sub_callback(
   if (target_frame_param.empty()) {
     rclcpp::shutdown();
   } else {
+    auto start = this->now();
+    auto delay1 = start - lidar_1_msg->header.stamp;
+    auto delay2 = start - lidar_2_msg->header.stamp;
+    auto delay = delay1;
+    if (delay2 > delay1) {
+      delay = delay2;
+    }
+
+    RCLCPP_INFO_STREAM(this->get_logger(), "TimeSync delay: " << delay.seconds() * 1000.0 - 100<< " [ms]");
     this->get_parameter<bool>("enable_calibration", enable_calibration_param);
     if(enable_calibration_param) {
       refresh_param();
@@ -295,6 +304,9 @@ void MergerNode::sub_callback(
     }
 
     merged_scan_pub->publish(merged);
+
+    auto compute_time = this->now() - start;
+    RCLCPP_INFO_STREAM(this->get_logger(), "PCL merge time: " << compute_time.seconds() * 1000.0 << " [ms]");
   }
 }
 
