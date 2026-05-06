@@ -92,6 +92,7 @@ void MergerNode::declare_param()
   enable_average_filter_param = this->declare_parameter("enable_average_filter", false);
   scan_period = this->declare_parameter("scan_period", 0.1);
   max_interval_duration = this->declare_parameter("max_interval_duration", 0.015);
+  verbosity = this->declare_parameter("verbosity", false);
 }
 
 void MergerNode::refresh_param()
@@ -119,6 +120,7 @@ void MergerNode::refresh_param()
   this->get_parameter("enable_average_filter", enable_average_filter_param);
   this->get_parameter("scan_period", scan_period);
   this->get_parameter("max_interval_duration", max_interval_duration);
+  this->get_parameter("verbosity", verbosity);
 }
 
 void MergerNode::sub_callback(
@@ -128,15 +130,18 @@ void MergerNode::sub_callback(
   if (target_frame_param.empty()) {
     rclcpp::shutdown();
   } else {
-    auto start = this->now();
-    auto delay1 = start - lidar_1_msg->header.stamp;
-    auto delay2 = start - lidar_2_msg->header.stamp;
-    auto delay = delay1;
-    if (delay2 > delay1) {
-      delay = delay2;
-    }
 
-    RCLCPP_INFO_STREAM(this->get_logger(), "TimeSync delay: " << delay.seconds() * 1000.0 - 100<< " [ms]");
+    // log lidar scan msg timesync delay
+    auto start = this->now();
+    if (verbosity) {
+      auto delay1 = start - lidar_1_msg->header.stamp;
+      auto delay2 = start - lidar_2_msg->header.stamp;
+      auto delay = delay1;
+      if (delay2 > delay1) {
+        delay = delay2;
+      }
+      RCLCPP_INFO_STREAM(this->get_logger(), "TimeSync delay: " << delay.seconds() * 1000.0 - 100<< " [ms]");
+    }
     this->get_parameter<bool>("enable_calibration", enable_calibration_param);
     if(enable_calibration_param) {
       refresh_param();
@@ -305,8 +310,11 @@ void MergerNode::sub_callback(
 
     merged_scan_pub->publish(merged);
 
-    auto compute_time = this->now() - start;
-    RCLCPP_INFO_STREAM(this->get_logger(), "PCL merge time: " << compute_time.seconds() * 1000.0 << " [ms]");
+    // log lidar scans merge time
+    if (verbosity) {
+      auto compute_time = this->now() - start;
+      RCLCPP_INFO_STREAM(this->get_logger(), "PCL merge time: " << compute_time.seconds() * 1000.0 << " [ms]");
+    }
   }
 }
 
