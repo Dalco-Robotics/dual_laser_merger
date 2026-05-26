@@ -183,19 +183,6 @@ void MergerNode::sub_callback(
     }
 
     if (lidar_1_msg->header.frame_id != target_frame_param) {
-      tf2_msg.header = cloud_in_1.header;
-      tf2_msg.child_frame_id = cloud_in_1.header.frame_id + "_calibrated";
-      tf2_msg.transform.translation.x = laser_1_x_offset;
-      tf2_msg.transform.translation.y = laser_1_y_offset;
-      tf2_msg.transform.translation.z = 0.0;
-      tf2_quaternion.setRPY(0, 0, laser_1_yaw_offset);
-      tf2_msg.transform.rotation.x = tf2_quaternion.x();
-      tf2_msg.transform.rotation.y = tf2_quaternion.y();
-      tf2_msg.transform.rotation.z = tf2_quaternion.z();
-      tf2_msg.transform.rotation.w = tf2_quaternion.w();
-      tf2_broadcaster->sendTransform(tf2_msg);
-      cloud_in_1.header.frame_id = tf2_msg.child_frame_id;
-
       try {
         cloud_in_1 = tf2_buffer->transform(
           cloud_in_1, target_frame_param, tf2::durationFromSec(tolerance_param));
@@ -206,19 +193,6 @@ void MergerNode::sub_callback(
     }
 
     if (lidar_2_msg->header.frame_id != target_frame_param) {
-      tf2_msg.header = cloud_in_2.header;
-      tf2_msg.child_frame_id = cloud_in_2.header.frame_id + "_calibrated";
-      tf2_msg.transform.translation.x = laser_2_x_offset;
-      tf2_msg.transform.translation.y = laser_2_y_offset;
-      tf2_msg.transform.translation.z = 0.0;
-      tf2_quaternion.setRPY(0, 0, laser_2_yaw_offset);
-      tf2_msg.transform.rotation.x = tf2_quaternion.x();
-      tf2_msg.transform.rotation.y = tf2_quaternion.y();
-      tf2_msg.transform.rotation.z = tf2_quaternion.z();
-      tf2_msg.transform.rotation.w = tf2_quaternion.w();
-      tf2_broadcaster->sendTransform(tf2_msg);
-      cloud_in_2.header.frame_id = tf2_msg.child_frame_id;
-
       try {
         cloud_in_2 = tf2_buffer->transform(
           cloud_in_2, target_frame_param, tf2::durationFromSec(tolerance_param));
