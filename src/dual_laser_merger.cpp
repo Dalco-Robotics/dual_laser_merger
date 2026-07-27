@@ -93,6 +93,11 @@ void MergerNode::declare_param()
   scan_period = this->declare_parameter("scan_period", 0.1);
   max_interval_duration = this->declare_parameter("max_interval_duration", 0.015);
   verbosity = this->declare_parameter("verbosity", false);
+  enable_angle_filter_param = this->declare_parameter("enable_angle_filter", false);
+  laser_1_mask_min = this->declare_parameter("laser_1_mask_angle_min", 0.0);
+  laser_1_mask_max = this->declare_parameter("laser_1_mask_angle_max", 0.0);
+  laser_2_mask_min = this->declare_parameter("laser_2_mask_angle_min", 0.0);
+  laser_2_mask_max = this->declare_parameter("laser_2_mask_angle_max", 0.0);
 }
 
 void MergerNode::refresh_param()
@@ -121,6 +126,11 @@ void MergerNode::refresh_param()
   this->get_parameter("scan_period", scan_period);
   this->get_parameter("max_interval_duration", max_interval_duration);
   this->get_parameter("verbosity", verbosity);
+  this->get_parameter("enable_angle_filter", enable_angle_filter_param);
+  this->get_parameter("laser_1_mask_angle_min", laser_1_mask_min);
+  this->get_parameter("laser_1_mask_angle_max", laser_1_mask_max);
+  this->get_parameter("laser_2_mask_angle_min", laser_2_mask_min);
+  this->get_parameter("laser_2_mask_angle_max", laser_2_mask_max);
 }
 
 void MergerNode::sub_callback(
@@ -147,34 +157,47 @@ void MergerNode::sub_callback(
       refresh_param();
     }
 
-    if(enable_average_filter_param) {
-      lidar_1_avg = *lidar_1_msg;
-      lidar_2_avg = *lidar_2_msg;
-      for(size_t i = 0; i <= lidar_1_msg->ranges.size(); i++) {
-        if(i == 0) {
-          lidar_1_avg.ranges[i] = (lidar_1_msg->ranges[lidar_1_msg->ranges.size() - 1] +
-            lidar_1_msg->ranges[i] + lidar_1_msg->ranges[i + 1]) / 3;
-        } else if(i == (lidar_1_msg->ranges.size() - 1)) {
-          lidar_1_avg.ranges[i] = (lidar_1_msg->ranges[i - 1] + lidar_1_msg->ranges[i] +
-            lidar_1_msg->ranges[0]) / 3;
-        } else {
-          lidar_1_avg.ranges[i] = (lidar_1_msg->ranges[i - 1] + lidar_1_msg->ranges[i] +
-            lidar_1_msg->ranges[i + 1]) / 3;
-        }
-      }
-      for(size_t i = 0; i <= lidar_2_msg->ranges.size(); i++) {
-        if(i == 0) {
-          lidar_2_avg.ranges[i] = (lidar_2_msg->ranges[lidar_2_msg->ranges.size() - 1] +
-            lidar_2_msg->ranges[i] + lidar_2_msg->ranges[i + 1]) / 3;
-        } else if(i == (lidar_2_msg->ranges.size() - 1)) {
-          lidar_2_avg.ranges[i] = (lidar_2_msg->ranges[i - 1] + lidar_2_msg->ranges[i] +
-            lidar_2_msg->ranges[0]) / 3;
-        } else {
-          lidar_2_avg.ranges[i] = (lidar_2_msg->ranges[i - 1] + lidar_2_msg->ranges[i] +
-            lidar_2_msg->ranges[i + 1]) / 3;
-        }
-      }
+    lidar_1_filtered = *lidar_1_msg;
+    lidar_2_filtered = *lidar_2_msg;
 
+    if (enable_angle_filter_param) {
+      apply_angle_mask(lidar_1_filtered, laser_1_mask_min, laser_1_mask_max);
+      apply_angle_mask(lidar_2_filtered, laser_2_mask_min, laser_2_mask_max);
+    }
+
+    if(enable_average_filter_param) {
+      lidar_1_avg = lidar_1_filtered;
+      lidar_2_avg = lidar_2_filtered;
+      for(size_t i = 0; i < lidar_1_filtered.ranges.size(); i++) {
+        if(i == 0) {
+          lidar_1_avg.ranges[i] = (lidar_1_filtered.ranges[lidar_1_filtered.ranges.size() - 1] +
+            lidar_1_filtered.ranges[i] + lidar_1_filtered.ranges[i + 1]) / 3;
+        } else if(i == (lidar_1_filtered.ranges.size() - 1)) {
+          lidar_1_avg.ranges[i] = (lidar_1_filtered.ranges[i - 1] + lidar_1_filtered.ranges[i] +
+            lidar_1_filtered.ranges[0]) / 3;
+        } else {
+          lidar_1_avg.ranges[i] = (lidar_1_filtered.ranges[i - 1] + lidar_1_filtered.ranges[i] +
+            lidar_1_filtered.ranges[i + 1]) / 3;
+        }
+      }
+      for(size_t i = 0; i < lidar_2_filtered.ranges.size(); i++) {
+        if(i == 0) {
+          lidar_2_avg.ranges[i] = (lidar_2_filtered.ranges[lidar_2_filtered.ranges.size() - 1] +
+            lidar_2_filtered.ranges[i] + lidar_2_filtered.ranges[i + 1]) / 3;
+        } else if(i == (lidar_2_filtered.ranges.size() - 1)) {
+          lidar_2_avg.ranges[i] = (lidar_2_filtered.ranges[i - 1] + lidar_2_filtered.ranges[i] +
+            lidar_2_filtered.ranges[0]) / 3;
+        } else {
+          lidar_2_avg.ranges[i] = (lidar_2_filtered.ranges[i - 1] + lidar_2_filtered.ranges[i] +
+            lidar_2_filtered.ranges[i + 1]) / 3;
+        }
+      }
+    }
+
+    if (enable_angle_filter_param) {
+      projector.projectLaser(lidar_1_filtered, cloud_in_1);
+      projector.projectLaser(lidar_2_filtered, cloud_in_2);
+    } else if(enable_average_filter_param) {
       projector.projectLaser(lidar_1_avg, cloud_in_1);
       projector.projectLaser(lidar_2_avg, cloud_in_2);
     } else {
@@ -288,6 +311,33 @@ void MergerNode::sub_callback(
     if (verbosity) {
       auto compute_time = this->now() - start;
       RCLCPP_INFO_STREAM(this->get_logger(), "PCL merge time: " << compute_time.seconds() * 1000.0 << " [ms]");
+    }
+  }
+}
+
+void MergerNode::apply_angle_mask(
+  sensor_msgs::msg::LaserScan & scan, double mask_min, double mask_max)
+{
+  if (mask_min == mask_max) {
+    return;  // no mask configured for this lidar
+  }
+
+  for (size_t i = 0; i < scan.ranges.size(); i++) {
+    double beam_angle = scan.angle_min + static_cast<double>(i) * scan.angle_increment;
+
+    bool in_mask;
+    if (mask_min <= mask_max) {
+      in_mask = (beam_angle >= mask_min && beam_angle <= mask_max);
+    } else {
+      // sector wraps across the +/-pi boundary
+      in_mask = (beam_angle >= mask_min || beam_angle <= mask_max);
+    }
+
+    if (in_mask) {
+      scan.ranges[i] = std::numeric_limits<float>::quiet_NaN();
+      if (i < scan.intensities.size()) {
+        scan.intensities[i] = 0.0f;
+      }
     }
   }
 }
